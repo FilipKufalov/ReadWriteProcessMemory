@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using System.Diagnostics;
 
 namespace Mem
 {
@@ -13,11 +14,15 @@ namespace Mem
         public static int m_iNumberOfBytesRead = 0;
         public static int m_iNumberOfBytesWritten = 0;
         public static Process m_Process;
-        public static IntPtr m_pProcessHandle;
+        public static int m_pProcessHandle;
         public static ulong BaseAddress;
         private const ulong PROCESS_VM_OPERATION = 8;
         private const ulong PROCESS_VM_READ = 16;
         private const ulong PROCESS_VM_WRITE = 32;
+
+        // For process resolution (WorldToScreen)
+        public static int windowWidth = 0;
+        public static int windowHeight = 0;
 
         public static void Initialize(string ProcessName)
         {
@@ -25,7 +30,7 @@ namespace Mem
             {
                 //Console.WriteLine((ulong)Process.GetProcessesByName(ProcessName).Length > 0U);
                 Mem.m_Process = Process.GetProcessesByName(ProcessName)[0];
-                Mem.BaseAddress = (ulong)Process.GetProcessesByName(ProcessName)[0].MainModule.BaseAddress.ToInt64();
+                Mem.BaseAddress = (ulong)Process.GetProcessesByName(ProcessName)[0].MainModule.BaseAddress.ToInt32();
                 Console.WriteLine("Process " + Mem.m_Process.MainWindowTitle + " successfully finded!");
             }
             else
@@ -78,27 +83,72 @@ namespace Mem
             return destination;
         }
 
-        public static T ReadMemory<T>(ulong Adress) where T : struct
+        public static bool GetWindowSize(string ProcessName)
+        {
+            Process[] processes = Process.GetProcessesByName(ProcessName);
+
+            if (processes.Length > 0)
+            {
+                Process Process = processes[0];
+                IntPtr mainWindowHandle = Process.MainWindowHandle;
+                RECT windowRect;
+
+                if (GetWindowRect(mainWindowHandle, out windowRect))
+                {
+                    windowWidth = windowRect.Right - windowRect.Left;
+                    windowHeight = windowRect.Bottom - windowRect.Top;
+                    return true;
+                }
+                else
+                {
+                    Console.WriteLine($"Failed to retrieve {ProcessName}.");
+                    return false;
+                }
+            }
+            else
+            {
+                Console.WriteLine($"{ProcessName} is not running.");
+                return false;
+            }
+        }
+   
+
+        public static T ReadMemory<T>(nint Adress) where T : struct
         {
             byte[] numArray = new byte[Marshal.SizeOf(typeof(T))];
-            Mem.ReadProcessMemory((int)Mem.m_pProcessHandle, Adress, numArray, numArray.Length, ref Mem.m_iNumberOfBytesRead);
+            Mem.ReadProcessMemory(Mem.m_pProcessHandle, Adress, numArray, numArray.Length, ref Mem.m_iNumberOfBytesRead);
             return Mem.ByteArrayToStructure<T>(numArray);
         }
 
-        public static void WriteMemory<T>(ulong Adress, object Value) where T : struct
+        public static void WriteMemory<T>(int Adress, object Value) where T : struct
         {
             byte[] byteArray = Mem.StructureToByteArray(Value);
-            Mem.WriteProcessMemory((int)Mem.m_pProcessHandle, Adress, byteArray, byteArray.Length, out Mem.m_iNumberOfBytesWritten);
+            Mem.WriteProcessMemory(Mem.m_pProcessHandle, Adress, byteArray, byteArray.Length, out Mem.m_iNumberOfBytesWritten);
+        }
+
+        [DllImport("user32.dll")]
+        static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
         }
 
         [DllImport("kernel32.dll")]
-        private static extern IntPtr OpenProcess(int dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+        private static extern int OpenProcess(int dwDesiredAccess, bool bInheritHandle, int dwProcessId);
 
         [DllImport("kernel32.dll")]
-        private static extern bool ReadProcessMemory(int hProcess, ulong lpBaseAddress, byte[] buffer, int size, ref int lpNumberOfBytesRead);
+        private static extern bool ReadProcessMemory(int hProcess, nint lpBaseAddress, byte[] buffer, int size, ref int lpNumberOfBytesRead);
 
         [DllImport("kernel32.dll")]
-        private static extern bool WriteProcessMemory(int hProcess, ulong lpBaseAddress, byte[] buffer, int size, out int lpNumberOfBytesWritten);
+        private static extern bool WriteProcessMemory(int hProcess, int lpBaseAddress, byte[] buffer, int size, out int lpNumberOfBytesWritten);
 
         [DllImport("user32.dll", SetLastError = true)]
         static extern IntPtr FindWindow(string lpClassName, int lpWindowName);
