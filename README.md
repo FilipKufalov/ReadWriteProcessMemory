@@ -6,9 +6,13 @@ Converted from VB to C#, Reference: https://github.com/FilipKufalov/VB.NET/blob/
 3. **Ability to read memory from process, Example:** "Mem.ReadMemory<T>(Address));"
 4. **Ability to write to memory, Example:** "Mem.WriteMemory<T>(Address, Value);"
 5. **Ability to get any process width and height** "Mem.GetWindowSize(processName)"
-# Added
-- InitWindow
-- GetWindowSize
+# Change Log
+(28.11.2023)
+-Summary explanation for all functions
+(27.05.2023)
+-GetWindowSize
+(08.12.2022)
+-InitWindow
 # Additional Info
 - Change <T> with your type value
 - Mem.BaseAddress is entry point/address of .exe/process

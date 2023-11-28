@@ -15,6 +15,9 @@ namespace Mem
         public static int m_iNumberOfBytesWritten = 0;
         public static Process m_Process;
         public static int m_pProcessHandle;
+        /// <summary>
+        /// Base address of the main module of the target process.
+        /// </summary>
         public static ulong BaseAddress;
         private const ulong PROCESS_VM_OPERATION = 8;
         private const ulong PROCESS_VM_READ = 16;
@@ -24,6 +27,10 @@ namespace Mem
         public static int windowWidth = 0;
         public static int windowHeight = 0;
 
+        /// <summary>
+        /// Initializes the Mem class for a specified process.
+        /// </summary>
+        /// <param name="ProcessName">Name of the target process.</param>
         public static void Initialize(string ProcessName)
         {
             if ((ulong)Process.GetProcessesByName(ProcessName).Length > 0U)
@@ -40,7 +47,10 @@ namespace Mem
             }
             Mem.m_pProcessHandle = Mem.OpenProcess(56, false, Mem.m_Process.Id);
         }
-
+        /// <summary>
+        /// Initializes the Mem class for a specified process using window handle.
+        /// </summary>
+        /// <param name="ProcessName">Name of the target process.</param>
         public static void InitWindow(string ProcessName)
         {
             uint pid;
@@ -59,7 +69,12 @@ namespace Mem
                 Environment.Exit(1);
             }
         }
-
+        /// <summary>
+        /// Converts a byte array to a structure of the specified type.
+        /// </summary>
+        /// <typeparam name="T">Type of the structure.</typeparam>
+        /// <param name="bytes">Byte array to convert.</param>
+        /// <returns>The converted structure.</returns>
         private static T ByteArrayToStructure<T>(byte[] bytes) where T : struct
         {
             GCHandle gcHandle = GCHandle.Alloc((object)bytes, GCHandleType.Pinned);
@@ -72,6 +87,12 @@ namespace Mem
                 gcHandle.Free();
             }
         }
+        /// <summary>
+        /// Converts a sturcture to a byte array
+        /// </summary>
+        /// <typeparam name="T">Type of the structure.</typeparam>
+        /// <param name="bytes">Byte array to convert.</param>
+        /// <returns>The converted byte array.</returns>
         private static byte[] StructureToByteArray(object obj)
         {
             int length = Marshal.SizeOf(obj);
@@ -82,7 +103,11 @@ namespace Mem
             Marshal.FreeHGlobal(num);
             return destination;
         }
-
+        /// <summary>
+        /// Retrieves the size of the target process window.
+        /// </summary>
+        /// <param name="ProcessName">Name of the target process.</param>
+        /// <returns>True if successful (Rewrite windowWidth and windowHeight variables); otherwise, false.</returns>
         public static bool GetWindowSize(string ProcessName)
         {
             Process[] processes = Process.GetProcessesByName(ProcessName);
@@ -111,20 +136,32 @@ namespace Mem
                 return false;
             }
         }
-   
 
-        public static T ReadMemory<T>(nint Adress) where T : struct
+        /// <summary>
+        /// Reads a value of the specified structure type from the memory of the target process at the given address.
+        /// </summary>
+        /// <typeparam name="T">Type of the structure to read.</typeparam>
+        /// <param name="Address">Memory address to read from.</param>
+        /// <returns>The read structure value.</returns>
+        public static T ReadMemory<T>(nint Address) where T : struct
         {
-            byte[] numArray = new byte[Marshal.SizeOf(typeof(T))];
-            Mem.ReadProcessMemory(Mem.m_pProcessHandle, Adress, numArray, numArray.Length, ref Mem.m_iNumberOfBytesRead);
-            return Mem.ByteArrayToStructure<T>(numArray);
+            byte[] buffer = new byte[Marshal.SizeOf(typeof(T))];
+            Mem.ReadProcessMemory(Mem.m_pProcessHandle, Address, buffer, buffer.Length, ref Mem.m_iNumberOfBytesRead);
+            return Mem.ByteArrayToStructure<T>(buffer);
         }
 
-        public static void WriteMemory<T>(int Adress, object Value) where T : struct
+        /// <summary>
+        /// Writes the specified structure value to the memory of the target process at the given address.
+        /// </summary>
+        /// <typeparam name="T">Type of the structure to write.</typeparam>
+        /// <param name="Address">Memory address to write to.</param>
+        /// <param name="Value">Structure value to write.</param>
+        public static void WriteMemory<T>(int Address, object Value) where T : struct
         {
             byte[] byteArray = Mem.StructureToByteArray(Value);
-            Mem.WriteProcessMemory(Mem.m_pProcessHandle, Adress, byteArray, byteArray.Length, out Mem.m_iNumberOfBytesWritten);
+            Mem.WriteProcessMemory(Mem.m_pProcessHandle, Address, byteArray, byteArray.Length, out Mem.m_iNumberOfBytesWritten);
         }
+
 
         [DllImport("user32.dll")]
         static extern IntPtr GetForegroundWindow();
@@ -155,5 +192,7 @@ namespace Mem
 
         [DllImport("user32.dll", SetLastError = true)]
         static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+        
     }
 }
