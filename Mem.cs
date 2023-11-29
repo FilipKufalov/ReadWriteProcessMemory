@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -161,6 +162,77 @@ namespace Mem
             byte[] byteArray = Mem.StructureToByteArray(Value);
             Mem.WriteProcessMemory(Mem.m_pProcessHandle, Address, byteArray, byteArray.Length, out Mem.m_iNumberOfBytesWritten);
         }
+        /// <summary>
+        /// Allocates a block of virtual memory within a target process using the VirtualAllocEx function.
+        /// </summary>
+        /// <param name="size">The size, in bytes, of the memory block to allocate.</param>
+        /// <returns>
+        /// An IntPtr representing the base address of the allocated memory block. 
+        /// If the allocation fails, the function returns IntPtr.Zero.
+        /// </returns>
+        /// <remarks>
+        /// The VirtualAllocEx function is used to reserve and commit a region of virtual memory 
+        /// within the specified process. The allocation type includes both committing and reserving 
+        /// memory, and the memory protection allows reading, writing, and executing operations.
+        /// Proper error handling is implemented, and an error message is displayed if the allocation fails.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// IntPtr allocatedMemory = AllocMem(0x100); // Allocates 256 bytes of memory
+        /// if (allocatedMemory != IntPtr.Zero)
+        /// {
+        ///     // Use allocatedMemory for further memory operations in the target process
+        /// }
+        /// </code>
+        /// </example>
+        public static IntPtr AllocMem(IntPtr size)
+        {
+            IntPtr allocAddress = VirtualAllocEx(m_pProcessHandle, IntPtr.Zero, size, AllocationType.Commit | AllocationType.Reserve, MemoryProtection.ExecuteReadWrite);
+
+            if (allocAddress == IntPtr.Zero)
+            {
+                Console.WriteLine("Memory allocation failed.");
+            }
+
+            return allocAddress;
+        }
+        /// <summary>
+        /// Frees a block of virtual memory within a target process using the VirtualFreeEx function.
+        /// </summary>
+        /// <param name="address">The base address of the region of pages to be freed.</param>
+        /// <param name="size">The size of the region of memory to free, in bytes. If set to 0, the entire region is freed.</param>
+        /// <returns>
+        /// Returns true if the operation succeeds; otherwise, false. 
+        /// If the operation fails, the function prints an error message to the console.
+        /// </returns>
+        /// <remarks>
+        /// The VirtualFreeEx function is used to release a region of virtual memory within the specified process.
+        /// When freeing memory with FreeType.Release, setting the size to 0 indicates that the entire region
+        /// starting from the specified address should be released.
+        /// Proper error handling is implemented, and an error message is displayed if the operation fails.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// bool success = FreeMem(address, 0); // Frees the entire region of memory starting from the specified address
+        /// if (success)
+        /// {
+        ///     // Memory successfully freed
+        /// }
+        /// </code>
+        /// </example>
+
+        public static bool FreeMem(IntPtr address, IntPtr size)
+        {
+            bool success = VirtualFreeEx(m_pProcessHandle, address, size, FreeType.Release);
+
+            if (!success)
+            {
+                int error = Marshal.GetLastWin32Error();
+                Console.WriteLine("VirtualFreeEx failed with error code: " + error + ", Try with size: 0");
+            }
+
+            return success;
+        }
 
 
         [DllImport("user32.dll")]
@@ -193,6 +265,46 @@ namespace Mem
         [DllImport("user32.dll", SetLastError = true)]
         static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
-        
+        [DllImport("kernel32.dll")]
+        public static extern IntPtr VirtualAllocEx(IntPtr hProcess, IntPtr lpBaseAddress, IntPtr dwSize, AllocationType flAllocationType, MemoryProtection flProtect);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool VirtualFreeEx(IntPtr hProcess, IntPtr lpBaseAddress, IntPtr dwSize, FreeType dwFreeType);
+
+        [Flags]
+        public enum AllocationType
+        {
+            Commit = 0x1000,
+            Reserve = 0x2000,
+            Decommit = 0x4000,
+            Release = 0x8000,
+            Reset = 0x80000,
+            Physical = 0x400000,
+            TopDown = 0x100000,
+            WriteWatch = 0x200000,
+            LargePages = 0x20000000
+        }
+
+        [Flags]
+        public enum MemoryProtection
+        {
+            Execute = 0x10,
+            ExecuteRead = 0x20,
+            ExecuteReadWrite = 0x40,
+            ExecuteWriteCopy = 0x80,
+            NoAccess = 0x01,
+            ReadOnly = 0x02,
+            ReadWrite = 0x04,
+            WriteCopy = 0x08,
+            GuardModifierflag = 0x100,
+            NoCacheModifierflag = 0x200,
+            WriteCombineModifierflag = 0x400
+        }
+
+        public enum FreeType
+        {
+            Decommit = 0x4000,
+            Release = 0x8000
+        }
     }
 }
